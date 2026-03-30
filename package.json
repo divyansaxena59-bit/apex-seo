@@ -1,0 +1,36 @@
+{
+  "name": "apex-seo",
+  "version": "1.0.0",
+  "description": "World-class Shopify SEO plugin",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "start": "node dist/server.js",
+    "preview": "vite preview",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:deploy": "prisma migrate deploy",
+    "prisma:studio": "prisma studio"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.12.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router": "^6.22.0",
+    "@anthropic-ai/sdk": "^0.30.0",
+    "zod": "^3.22.0",
+    "xml2js": "^0.6.0",
+    "papaparse": "^5.4.1",
+    "p-limit": "^5.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@types/node": "^20.0.0",
+    "@vitejs/plugin-react": "^4.2.0",
+    "prisma": "^5.12.0",
+    "typescript": "^5.3.0",
+    "vite": "^5.0.0"
+  }
+}

@@ -1,0 +1,347 @@
+// This is your Prisma schema file for Apex SEO
+// Using String types instead of enums for SQLite compatibility
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Shopify Session (required by @shopify/shopify-app-react-router) ───
+
+model Session {
+  id            String    @id
+  shop          String
+  state         String
+  isOnline      Boolean   @default(false)
+  scope         String?
+  expires       DateTime?
+  accessToken   String
+  userId        BigInt?
+  firstName     String?
+  lastName      String?
+  email         String?
+  accountOwner  Boolean   @default(false)
+  locale        String?
+  collaborator  Boolean?  @default(false)
+  emailVerified Boolean?  @default(false)
+}
+
+// ─── Shop / Merchant ───
+
+model Shop {
+  id               String   @id             // shop domain e.g. "store.myshopify.com"
+  shopName         String
+  email            String?
+  domain           String?                  // custom domain
+  plan             String?
+  installedAt      DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  isActive         Boolean  @default(true)
+
+  settings         ShopSettings?
+  seoRecords       SeoRecord[]
+  schemaConfigs    SchemaConfig[]
+  redirects        Redirect[]
+  scanJobs         ScanJob[]
+  auditReports     AuditReport[]
+  altTextRecords   AltTextRecord[]
+  pageSpeedResults PageSpeedResult[]
+  keywords         TrackedKeyword[]
+  sitemapConfig    SitemapConfig?
+}
+
+// ─── Shop Settings ───
+
+model ShopSettings {
+  id                    String   @id @default(cuid())
+  shopId                String   @unique
+  shop                  Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  // AI
+  claudeApiKey          String?
+  aiEnabled             Boolean  @default(false)
+  aiModel               String   @default("claude-sonnet-4-5")
+
+  // Google integrations
+  psiApiKey             String?
+  searchConsoleEnabled  Boolean  @default(false)
+
+  // General SEO defaults
+  defaultTitleTemplate  String   @default("{page_title} | {shop_name}")
+  defaultDescTemplate   String?
+  defaultOgImage        String?
+  organizationName      String?
+  organizationUrl       String?
+  organizationLogo      String?
+  twitterHandle         String?
+  facebookAppId         String?
+
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+// ─── SEO Records (meta tags per resource) ───
+
+model SeoRecord {
+  id               String    @id @default(cuid())
+  shopId           String
+  shop             Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  resourceType     String                // PRODUCT | COLLECTION | PAGE | BLOG | ARTICLE
+  resourceId       String                // Shopify GID e.g. "gid://shopify/Product/123"
+  resourceHandle   String?               // URL handle for reference
+  resourceTitle    String?               // stored for display without re-fetching
+
+  // Core SEO
+  metaTitle        String?
+  metaDescription  String?
+
+  // Open Graph
+  ogTitle          String?
+  ogDescription    String?
+  ogImage          String?
+  ogType           String?
+
+  // Twitter Card
+  twitterCard      String?
+  twitterTitle     String?
+  twitterDescription String?
+
+  // Canonical
+  canonicalUrl     String?
+  noIndex          Boolean   @default(false)
+  noFollow         Boolean   @default(false)
+
+  // Focus Keyphrase
+  focusKeyphrase   String?
+  keyphraseScore   Int?      // 0-16
+
+  // Readability
+  readabilityScore Float?    // Flesch Reading Ease
+  readabilityGrade String?   // Easy / Standard / Difficult / Very Difficult
+  passiveVoicePct  Float?    // % passive sentences
+  avgSentenceLength Float?   // average words per sentence
+
+  // Overall Scores
+  seoScore         Int?      // 0-100 calculated score
+  lastSyncedAt     DateTime?
+
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@unique([shopId, resourceType, resourceId])
+  @@index([shopId, resourceType])
+  @@index([shopId, seoScore])
+}
+
+// ─── JSON-LD Schema Configuration ───
+
+model SchemaConfig {
+  id              String      @id @default(cuid())
+  shopId          String
+  shop            Shop        @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  schemaType      String      // PRODUCT | ORGANIZATION | BREADCRUMB | ARTICLE | FAQ | SITELINKS_SEARCHBOX
+  enabled         Boolean     @default(true)
+  config          String      // JSON string of flexible per-type config
+  customOverride  String?     // JSON string of merchant custom fields override
+
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@unique([shopId, schemaType])
+}
+
+// ─── Sitemap Configuration ───
+
+model SitemapConfig {
+  id                  String   @id @default(cuid())
+  shopId              String   @unique
+  shop                Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  includeProducts     Boolean  @default(true)
+  includeCollections  Boolean  @default(true)
+  includePages        Boolean  @default(true)
+  includeBlogs        Boolean  @default(true)
+  includeArticles     Boolean  @default(true)
+
+  productPriority     Float    @default(0.8)
+  collectionPriority  Float    @default(0.7)
+  pagePriority        Float    @default(0.5)
+  blogPriority        Float    @default(0.4)
+  homePriority        Float    @default(1.0)
+
+  defaultChangefreq   String   @default("weekly")
+  excludedHandles     String   @default("")  // comma-separated
+
+  lastGeneratedAt     DateTime?
+  cachedXml           String?  // cached sitemap XML
+  updatedAt           DateTime @updatedAt
+}
+
+// ─── Redirects ───
+
+model Redirect {
+  id               String       @id @default(cuid())
+  shopId           String
+  shop             Shop         @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  shopifyId        String?      // Shopify UrlRedirect GID (synced)
+  fromPath         String       // e.g. "/old-product"
+  toPath           String       // e.g. "/products/new-product"
+  redirectType     String       @default("PERMANENT")  // PERMANENT (301) or TEMPORARY (302)
+  isActive         Boolean      @default(true)
+  hits             Int          @default(0)
+  lastHitAt        DateTime?
+  note             String?
+
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@unique([shopId, fromPath])
+  @@index([shopId, isActive])
+}
+
+// ─── Background Scan Jobs ───
+
+model ScanJob {
+  id          String      @id @default(cuid())
+  shopId      String
+  shop        Shop        @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  jobType     String      // BROKEN_LINKS | BULK_ALT_TEXT | BULK_META_TAGS | FULL_AUDIT | SITEMAP_REBUILD
+  status      String      @default("PENDING")  // PENDING | RUNNING | COMPLETE | FAILED | CANCELLED
+  progress    Int         @default(0)    // 0-100
+  totalItems  Int         @default(0)
+  doneItems   Int         @default(0)
+  error       String?
+  resultUrl   String?     // JSONL download URL for bulk ops
+
+  startedAt   DateTime?
+  finishedAt  DateTime?
+  createdAt   DateTime    @default(now())
+
+  @@index([shopId, jobType, status])
+}
+
+// ─── SEO Audit Reports ───
+
+model AuditReport {
+  id           String        @id @default(cuid())
+  shopId       String
+  shop         Shop          @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  overallScore Int           // 0-100
+  status       String        @default("PENDING")  // PENDING | RUNNING | COMPLETE | FAILED
+  items        AuditItem[]
+  summary      String?       // JSON string of { critical: n, warnings: n, info: n, passed: n }
+
+  createdAt    DateTime      @default(now())
+  completedAt  DateTime?
+
+  @@index([shopId, createdAt])
+}
+
+model AuditItem {
+  id              String       @id @default(cuid())
+  reportId        String
+  report          AuditReport  @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  category        String       // META_TAGS | SCHEMA | IMAGES | SPEED | LINKS | REDIRECTS | SITEMAP | CONTENT | READABILITY | KEYPHRASE
+  checkId         String       // e.g. "missing_meta_description"
+  severity        String       // CRITICAL | WARNING | INFO | PASSED
+  title           String
+  description     String
+  affectedUrl     String?
+  affectedCount   Int          @default(1)
+  fixSuggestion   String?      // AI-generated fix text
+  isFixed         Boolean      @default(false)
+
+  @@index([reportId, severity])
+  @@index([reportId, category])
+}
+
+// ─── Image Alt Text Records ───
+
+model AltTextRecord {
+  id            String   @id @default(cuid())
+  shopId        String
+  shop          Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  shopifyImageId String  // Shopify Media GID
+  productId     String?  // parent product GID
+  originalAlt   String?
+  customAlt     String?
+  isSynced      Boolean  @default(false)
+  imageUrl      String?  // stored for display
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([shopId, shopifyImageId])
+  @@index([shopId, isSynced])
+}
+
+// ─── Page Speed Results ───
+
+model PageSpeedResult {
+  id               String   @id @default(cuid())
+  shopId           String
+  shop             Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  url              String
+  strategy         String   @default("mobile")  // mobile | desktop
+  performanceScore Int?
+  lcpMs            Float?
+  inpMs            Float?
+  clsScore         Float?
+  fcpMs            Float?
+  ttfbMs           Float?
+  rawResponse      String?  // full PSI response cached as JSON
+
+  measuredAt       DateTime @default(now())
+
+  @@index([shopId, url, strategy, measuredAt])
+}
+
+// ─── Tracked Keywords ───
+
+model TrackedKeyword {
+  id          String   @id @default(cuid())
+  shopId      String
+  shop        Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  keyword     String
+  targetUrl   String?
+  searchVolume Int?
+  difficulty   Int?
+  lastPosition Int?
+  positionAt   DateTime?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([shopId, keyword])
+  @@index([shopId])
+}
+
+// ─── Broken Link Records ───
+
+model BrokenLink {
+  id           String   @id @default(cuid())
+  shopId       String
+
+  sourceUrl    String   // page where the link was found
+  brokenUrl    String   // the 404 URL
+  statusCode   Int
+  isFixed      Boolean  @default(false)
+  fixedBy      String?  // redirect GID that fixed it
+  detectedAt   DateTime @default(now())
+  fixedAt      DateTime?
+
+  @@index([shopId, isFixed])
+}
