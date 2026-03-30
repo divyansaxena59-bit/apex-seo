@@ -58,7 +58,7 @@ export default function ProductsMeta() {
   const { records, total, pages, currentPage, shop } =
     useLoaderData<typeof loader>();
 
-  const rows = records.map((record) => [
+  const rows = records.map((record: any) => [
     record.resourceTitle || 'Untitled',
     record.metaTitle || '—',
     record.focusKeyphrase || '—',

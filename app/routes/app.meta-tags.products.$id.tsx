@@ -319,7 +319,7 @@ export default function ProductEditor() {
                 {keyphrase.warnings.length > 0 && (
                   <Box marginTop="400">
                     <Text variant="bodySm" tone="warning">
-                      {keyphrase.warnings.map((w, i) => (
+                      {keyphrase.warnings.map((w: string, i: number) => (
                         <div key={i}>⚠️ {w}</div>
                       ))}
                     </Text>
