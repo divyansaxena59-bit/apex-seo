@@ -1,0 +1,14 @@
+node_modules
+dist
+.next
+.nuxt
+.cache
+.vuepress/dist
+.serverless/
+.fusebox/
+.dynamodb/
+.tern-port
+.git
+.gitignore
+README.md
+.env.example
