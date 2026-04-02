@@ -1,8 +1,13 @@
-/**
- * Production server entry point
- * Simple Express server for Shopify app
- */
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const rootDir = path.join(__dirname, '..');
+const distDir = path.join(rootDir, 'dist');
+
+// Create server.js from server.ts
+const serverCode = `
 import express from 'express';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -21,7 +26,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.static(join(__dirname, '../public')));
 
 // Static files from dist (built React app)
-app.use(express.static(join(__dirname, '../dist')));
+app.use(express.static(join(__dirname)));
 
 // API routes
 app.get('/api/health', (req, res) => {
@@ -41,7 +46,7 @@ app.post('/webhooks/products/update', (req, res) => {
 
 // SPA fallback - serve React app
 app.get('*', (req, res) => {
-  res.sendFile(join(__dirname, '../dist/index.html'), (err) => {
+  res.sendFile(join(__dirname, 'index.html'), (err) => {
     if (err) {
       res.status(404).send('App not built. Run: npm run build');
     }
@@ -49,13 +54,20 @@ app.get('*', (req, res) => {
 });
 
 // Error handling
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use((err, req, res, next) => {
   console.error('Server error:', err);
   res.status(500).json({ error: 'Internal server error' });
 });
 
 // Start server
 const server = app.listen(PORT, () => {
-  console.log(`🚀 Apex SEO running on http://localhost:${PORT}`);
-  console.log(`📱 API: http://localhost:${PORT}/api/health`);
+  console.log(\`🚀 Apex SEO running on http://localhost:\${PORT}\`);
+  console.log(\`📱 API: http://localhost:\${PORT}/api/health\`);
+  console.log(\`📧 Webhooks ready at http://localhost:\${PORT}/webhooks\`);
 });
+
+export default app;
+`;
+
+fs.writeFileSync(path.join(distDir, 'server.js'), serverCode);
+console.log('✅ Server built to dist/server.js');

@@ -1,0 +1,13 @@
+name = "Apex SEO"
+client_id = "656b98e17b4b362853f463b2c6f197c2"
+embedded = true
+application_url = "https://apex-seo.ngrok.io"
+
+[build]
+automatically_update_urls_on_dev = true
+
+[auth]
+redirect_urls = []
+
+[webhooks]
+api_version = "2025-01"
